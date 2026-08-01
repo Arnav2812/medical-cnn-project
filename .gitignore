@@ -1,0 +1,16 @@
+# Environments
+venv/
+env/
+.env
+
+# Python Cache
+__pycache__/
+*.pyc
+
+# Data and Models (Too large for GitHub)
+data/raw/
+models/*.h5
+
+# OS generated files
+.DS_Store
+Thumbs.db
