@@ -5,7 +5,9 @@ import numpy as np
 import tensorflow as tf
 from PIL import Image
 from fastapi import FastAPI, File, UploadFile, HTTPException
-from tensorflow.keras.models import load_model
+from tensorflow.keras.applications import VGG16
+from tensorflow.keras.layers import Dense, Dropout, GlobalAveragePooling2D, RandomFlip, RandomRotation, RandomZoom, Input
+from tensorflow.keras.models import Model, Sequential
 
 # OpenTelemetry Instrumentation
 from opentelemetry import trace
@@ -13,7 +15,7 @@ from opentelemetry.sdk.trace import TracerProvider
 from opentelemetry.sdk.trace.export import BatchSpanProcessor, ConsoleSpanExporter
 from opentelemetry.instrumentation.fastapi import FastAPIInstrumentor
 
-# Initialize OpenTelemetry Tracing to Console
+# Initialize OpenTelemetry Tracing
 provider = TracerProvider()
 processor = BatchSpanProcessor(ConsoleSpanExporter())
 provider.add_span_processor(processor)
@@ -27,50 +29,67 @@ app = FastAPI(
     version="1.0.0"
 )
 
-# Instrument FastAPI App with OpenTelemetry
 FastAPIInstrumentor.instrument_app(app)
 
-# Global Configuration
-MODEL_PATH = os.path.join(os.getcwd(), "models", "vgg16_tumor_net.h5")
+# Configuration - Updated for Advanced Model
+WEIGHTS_PATH = os.path.join(os.getcwd(), "models", "vgg16_advanced.weights.h5")
 CLASS_NAMES = ['glioma_tumor', 'meningioma_tumor', 'no_tumor', 'pituitary_tumor']
 IMAGE_SIZE = (224, 224)
 
 model = None
 
+def build_advanced_vgg16(num_classes=4):
+    """Explicitly defines the Advanced VGG16 architecture structure."""
+    base_model = VGG16(weights=None, include_top=False, input_shape=(*IMAGE_SIZE, 3))
+    
+    data_augmentation = Sequential([
+        RandomFlip("horizontal_and_vertical"),
+        RandomRotation(0.1),
+        RandomZoom(0.1),
+    ], name="data_augmentation")
+
+    inputs = Input(shape=(*IMAGE_SIZE, 3))
+    x = data_augmentation(inputs)
+    x = base_model(x)
+    
+    x = GlobalAveragePooling2D()(x)
+    x = Dense(512, activation="relu")(x)
+    x = Dropout(0.5)(x)
+    outputs = Dense(num_classes, activation="softmax")(x)
+    
+    return Model(inputs=inputs, outputs=outputs)
 
 @app.on_event("startup")
 def load_trained_model():
-    """Load trained model weights into memory when application starts."""
+    """Instantiates architecture and loads weight tensors into memory."""
     global model
-    if os.path.exists(MODEL_PATH):
-        model = load_model(MODEL_PATH)
-        print(f"[INIT] Model successfully loaded from: {MODEL_PATH}")
-    else:
-        print(f"[ERROR] Model file not found at: {MODEL_PATH}")
-
+    try:
+        model = build_advanced_vgg16(len(CLASS_NAMES))
+        if os.path.exists(WEIGHTS_PATH):
+            model.load_weights(WEIGHTS_PATH)
+            print(f"[INIT] Advanced Model loaded successfully from: {WEIGHTS_PATH}")
+        else:
+            print(f"[ERROR] Weights file not found at: {WEIGHTS_PATH}")
+    except Exception as e:
+        print(f"[ERROR] Failed to load model weights: {e}")
 
 @app.get("/health", tags=["Operational Health"])
 def health_check():
-    """Health check endpoint for container orchestrators (K8s/Docker)."""
     return {
         "status": "healthy",
         "model_loaded": model is not None,
         "telemetry_active": True
     }
 
-
 @app.post("/predict", tags=["Inference Engine"])
 async def predict_mri(file: UploadFile = File(...)):
-    """Receives an MRI scan, runs VGG16 prediction, and logs telemetry spans."""
     if model is None:
         raise HTTPException(status_code=500, detail="CNN Model is not initialized.")
 
     if not file.content_type.startswith("image/"):
         raise HTTPException(status_code=400, detail="Invalid file type. Please upload an image.")
 
-    # Custom OpenTelemetry Span for Inference Engine Tracking
     with tracer.start_as_current_span("mri_preprocessing_and_inference"):
-        # 1. Preprocess Image File
         contents = await file.read()
         image = Image.open(io.BytesIO(contents)).convert("RGB")
         image = image.resize(IMAGE_SIZE)
@@ -78,7 +97,6 @@ async def predict_mri(file: UploadFile = File(...)):
         img_array = np.array(image, dtype=np.float32)
         img_batch = np.expand_dims(img_array, axis=0)
 
-        # 2. Model Inference
         predictions = model.predict(img_batch)
         predicted_index = int(np.argmax(predictions[0]))
         confidence_score = float(predictions[0][predicted_index])

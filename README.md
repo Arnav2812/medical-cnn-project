@@ -1,86 +1,106 @@
-# 🧠 Brain Tumor MRI Diagnostic API | MLOps & XAI
+# 🧠 Medical Imaging Diagnostic API | CNN, MLOps, Docker & Kubernetes
 
-![Python](https://img.shields.io/badge/Python-3.8%2B-blue)
-![TensorFlow](https://img.shields.io/badge/TensorFlow-2.12%2B-orange)
+![Python](https://img.shields.io/badge/Python-3.10%2B-blue)
+![TensorFlow](https://img.shields.io/badge/TensorFlow-2.16%2B-orange)
 ![FastAPI](https://img.shields.io/badge/FastAPI-0.100%2B-green)
+![Docker](https://img.shields.io/badge/Docker-Containerized-blue)
+![Kubernetes](https://img.shields.io/badge/Kubernetes-Ready-326ce5)
 ![OpenTelemetry](https://img.shields.io/badge/OpenTelemetry-Observability-blueviolet)
 
-An end-to-end, production-ready machine learning pipeline for classifying brain tumors from MRI scans. This repository demonstrates full-stack ML engineering capabilities, focusing heavily on **Responsible AI (Explainability)** and **MLOps (Observability)**.
+An end-to-end, production-ready machine learning pipeline for classifying brain tumors from MRI scans. This repository demonstrates full-stack ML engineering capabilities, focusing on **Advanced Fine-Tuning**, **Responsible AI (Explainability)**, and **Scalable Deployment (Docker/Kubernetes)**.
 
-## 🎯 Project Objectives
-Built to showcase enterprise-grade AI integration, this project bridges the gap between raw medical imaging data and a deployable diagnostic web service. 
-* **High-Accuracy Classification:** Utilizes Transfer Learning (VGG16 & ResNet50) for robust feature extraction.
-* **Clinical Transparency:** Implements Grad-CAM to generate visual heatmaps, ensuring AI decisions are explainable and trustworthy.
-* **Operational Health:** Wraps the inference engine in an asynchronous FastAPI server, instrumented with OpenTelemetry for real-time latency and trace monitoring.
+## 🎯 Project Highlights & Enterprise Features
+* **Advanced Deep Learning Architecture:** Upgraded from basic transfer learning to a fine-tuned VGG16/ResNet50 model utilizing nested Data Augmentation and unfreezed convolutional blocks for high-accuracy brain tissue feature extraction.
+* **Decoupled Architecture (Version Drift Immunity):** Model structures are defined explicitly in Python, injecting only raw mathematical tensors (`.weights.h5`) to ensure the API is 100% immune to Keras/TensorFlow schema drift across environments.
+* **Explainable AI (XAI):** Implements a custom `GradientTape` Grad-CAM script to generate heatmaps, proving exactly which pixels the AI utilized for its diagnosis, solving the "Black Box" problem.
+* **Latency & Metric Optimization:** Includes automated evaluation scripts to measure precise batch latency trade-offs between VGG16 and ResNet50, alongside comprehensive Precision/Recall/F1-Score reports.
+* **Containerized MLOps & Observability:** The inference engine is wrapped in an asynchronous FastAPI server, instrumented with OpenTelemetry to trace execution times, and fully containerized via Docker and Kubernetes for scalable cloud deployment.
 
 ---
 
 ## 📂 Repository Structure
-
 ```text
-medical_cnn_project/
+medical-cnn-project/
 ├── data/
 │   ├── raw/                  # Downloaded Kaggle MRI Dataset (Ignored in Git)
-│   └── processed/            # Generated Grad-CAM Visualizations
-├── models/                   # Compiled .h5 Model Weights (Ignored in Git)
+│   └── processed/            # Generated Grad-CAM XAI Visualizations
+├── k8s/
+│   ├── deployment.yaml       # Kubernetes replicas and scaling config
+│   └── service.yaml          # Kubernetes load balancing configuration
+├── models/                   # Decoupled Tensor Weights (e.g., vgg16_advanced.weights.h5)
 ├── src/
-│   ├── app.py                # FastAPI Web Server & OpenTelemetry Tracing
+│   ├── app.py                # FastAPI Web Server, Model Builder & OpenTelemetry Tracing
 │   ├── data_pipeline.py      # tf.data.Dataset Pipeline (Caching & Prefetching)
-│   ├── explainability.py     # Grad-CAM Heatmap Generation logic
-│   └── train.py              # Transfer Learning & Model Tuning Scripts
+│   ├── evaluate.py           # Model latency and classification report benchmarking
+│   ├── explainability.py     # Advanced Nested Grad-CAM Heatmap Generation
+│   └── train.py              # Transfer Learning, Fine-Tuning & Augmentation Scripts
+├── Dockerfile                # Production Docker Image Configuration
 ├── download_data.py          # Kagglehub API Fetcher
 ├── requirements.txt          # Python Dependencies
+├── test_endpoint.py          # Automated API Payload Testing & Heatmap Trigger
 └── README.md                 # Project Documentation
 ```
 
-## ⚙️ Installation & Setup
-
-1. Clone the repository and initialize the environment:
+## ⚙️ Local Installation & Setup
+Clone the repository and initialize the environment:
 
 ```bash
 git clone <your-github-repo-url>
-cd medical_cnn_project
+cd medical-cnn-project
 python -m venv venv
-# On Windows:
-venv\Scripts\activate
-# On Linux/macOS:
-source venv/bin/activate
-
+venv\Scripts\activate  # Windows
+# source venv/bin/activate  # Linux/macOS
 pip install -r requirements.txt
 ```
 
-2. Acquire the Dataset:
-
-This project utilizes the Sartaj Bhuvaji Brain Tumor Classification MRI dataset. Fetch it directly via the Kaggle API:
+Acquire the Dataset:
 
 ```bash
 python download_data.py
 ```
 
-3. Train the Models:
-
-Initiate the transfer learning pipeline to generate custom VGG16 and ResNet50 weights:
+Train & Evaluate Models:
+Run the training script (optimized for GPU) to generate the decoupled .weights.h5 files, then evaluate their latency and F1-scores.
 
 ```bash
 python src/train.py
+python src/evaluate.py
 ```
 
-4. Generate Explainability Reports (Optional):
+## 🐳 Docker Deployment
+The model is designed to be deployed as a completely isolated microservice.
 
-Test the Grad-CAM visualization on a sample image:
+Build the Docker Image:
 
 ```bash
-python src/explainability.py
+docker build -t cnn-mri-api:v1.0 .
 ```
 
-## 🚀 Deployment (FastAPI + OpenTelemetry)
-
-Launch the ASGI web server to expose the inference engine:
+Run the Containerized Inference Engine:
 
 ```bash
-uvicorn src.app:app --reload --port 8000
+docker run -d -p 8000:8000 --name cnn-mri-container cnn-mri-api:v1.0
 ```
 
-* **Interactive API Docs:** Navigate to `http://127.0.0.1:8000/docs` to use the Swagger UI.
-* **Health Check:** `GET /health` endpoint for Kubernetes/Docker orchestrator monitoring.
-* **Inference Engine:** `POST /predict` accepts an image upload and returns class probabilities alongside real-time OpenTelemetry span tracking in the server console.
+Monitor Container Observability:
+Watch the OpenTelemetry traces log in real-time as the server receives requests:
+
+```bash
+docker logs -f cnn-mri-container
+```
+
+## 🩺 Testing & Clinical Explainability (XAI)
+Once the Docker container is running on port 8000, you can interact with the API in multiple ways:
+
+**1. Visual Web UI (Swagger)**
+Navigate to `http://localhost:8000/docs` to visually upload MRI scans and receive instant JSON diagnostic predictions.
+
+**2. Automated Pipeline Testing & XAI Generation**
+Use the unified testing script to send a REST payload to the Docker API and automatically generate a clinical Grad-CAM heatmap overlay.
+
+```bash
+python test_endpoint.py
+```
+
+* **Output 1:** The JSON prediction is returned from the Docker API (e.g., Glioma Tumor: 96.42%).
+* **Output 2:** A visual heatmap is saved to `data/processed/heatmap_X.jpg` highlighting the exact tissue anomalies the model focused on.

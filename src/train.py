@@ -7,8 +7,22 @@ from tensorflow.keras.models import Model
 from tensorflow.keras.callbacks import ModelCheckpoint, EarlyStopping
 from data_pipeline import load_datasets, IMAGE_SIZE, BATCH_SIZE
 
+# ==================== GPU CONFIGURATION ====================
+gpus = tf.config.list_physical_devices('GPU')
+if gpus:
+    try:
+        # Dynamically allocate GPU memory as needed instead of allocating all VRAM at once
+        for gpu in gpus:
+            tf.config.experimental.set_memory_growth(gpu, True)
+        print(f"⚡ GPU Detected & Configured: {gpus[0].name}")
+    except RuntimeError as e:
+        print(f"GPU Config Error: {e}")
+else:
+    print("⚠️ No physical GPU detected by TensorFlow. Running on CPU.")
+# ===========================================================
+
 # Training Configurations
-EPOCHS = 3  # Set to 3 for fast execution on CPU (increase if using GPU)
+EPOCHS = 10  # Increased for GPU training
 LEARNING_RATE = 0.0001
 
 
@@ -51,7 +65,7 @@ def build_resnet50_model(num_classes):
 
 
 def train_and_save_model(model, train_ds, val_ds, save_name):
-    """Compiles, trains, and exports model weights."""
+    """Compiles, trains, and exports model weights in modern .keras format."""
     model.compile(
         optimizer=tf.keras.optimizers.Adam(learning_rate=LEARNING_RATE),
         loss="categorical_crossentropy",
@@ -61,7 +75,7 @@ def train_and_save_model(model, train_ds, val_ds, save_name):
     save_path = os.path.join(os.getcwd(), "models", save_name)
     callbacks = [
         ModelCheckpoint(save_path, monitor="val_accuracy", save_best_only=True, verbose=1),
-        EarlyStopping(monitor="val_loss", patience=2, restore_best_weights=True)
+        EarlyStopping(monitor="val_loss", patience=3, restore_best_weights=True)
     ]
 
     print(f"\n================ Starting Training: {model.name} ================")
@@ -76,17 +90,16 @@ def train_and_save_model(model, train_ds, val_ds, save_name):
 
 
 if __name__ == "__main__":
-    # 1. Load Data
+    # 1. Load Data (Dataset yields pre-batched data based on BATCH_SIZE)
     train_dataset, val_dataset, class_names = load_datasets()
     num_classes = len(class_names)
 
-    # Ensure models directory exists
     os.makedirs(os.path.join(os.getcwd(), "models"), exist_ok=True)
 
     # 2. Train VGG16
     vgg_model = build_vgg16_model(num_classes)
-    train_and_save_model(vgg_model, train_dataset, val_dataset, "vgg16_tumor_net.h5")
+    train_and_save_model(vgg_model, train_dataset, val_dataset, "vgg16_tumor_net.keras")
 
     # 3. Train ResNet50
     resnet_model = build_resnet50_model(num_classes)
-    train_and_save_model(resnet_model, train_dataset, val_dataset, "resnet_tumor_net.h5")
+    train_and_save_model(resnet_model, train_dataset, val_dataset, "resnet_tumor_net.keras")

@@ -10,6 +10,7 @@ __pycache__/
 # Data and Models (Too large for GitHub)
 data/raw/
 models/*.h5
+models/*.keras
 
 # OS generated files
 .DS_Store

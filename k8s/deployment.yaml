@@ -1,0 +1,47 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: cnn-mri-deployment
+  labels:
+    app: cnn-mri-api
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: cnn-mri-api
+  template:
+    metadata:
+      labels:
+        app: cnn-mri-api
+    spec:
+      containers:
+      - name: cnn-mri-container
+        image: cnn-mri-api:v1.0
+        ports:
+        - containerPort: 8000
+        resources:
+          limits:
+            memory: "2Gi"
+            cpu: "1000m"
+          requests:
+            memory: "1Gi"
+            cpu: "500m"
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 8000
+          initialDelaySeconds: 15
+          periodSeconds: 10
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: cnn-mri-service
+spec:
+  type: ClusterIP
+  selector:
+    app: cnn-mri-api
+  ports:
+    - protocol: TCP
+      port: 80
+      targetPort: 8000
